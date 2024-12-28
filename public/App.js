@@ -1,4 +1,18 @@
-function App() {
+function NavMenu() {
+  return (
+    <nav className="bg-gray-800 text-white p-4 mb-4">
+      <div className="max-w-4xl mx-auto flex justify-between items-center">
+        <div className="font-bold">SERAC Fallos</div>
+        <div className="space-x-4">
+          <a href="#/" className="hover:text-gray-300">Consulta</a>
+          <a href="#/login" className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">Admin</a>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+function SearchPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [faults, setFaults] = React.useState([]);
 
@@ -46,6 +60,72 @@ function App() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function LoginPage() {
+  const [username, setUsername] = React.useState('');
+  const [password, setPassword] = React.useState('');
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    // Por ahora solo mostraremos un mensaje
+    alert('Función de login pendiente de implementar');
+  };
+
+  return (
+    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold mb-6 text-center">Acceso Administrador</h2>
+      <form onSubmit={handleLogin} className="space-y-4">
+        <div>
+          <label className="block text-gray-700 mb-2">Usuario</label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-gray-700 mb-2">Contraseña</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+        <button 
+          type="submit" 
+          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
+        >
+          Iniciar Sesión
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function App() {
+  const [page, setPage] = React.useState(window.location.hash.slice(1) || '/');
+
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      setPage(window.location.hash.slice(1) || '/');
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  return (
+    <div>
+      <NavMenu />
+      {page === '/' && <SearchPage />}
+      {page === '/login' && <LoginPage />}
     </div>
   );
 }
