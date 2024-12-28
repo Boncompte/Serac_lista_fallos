@@ -100,6 +100,43 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Añadir estas rutas junto a las otras rutas API
+
+// Crear nuevo fallo
+app.post('/api/faults', authenticateToken, (req, res) => {
+  const newFault = req.body;
+  // Aquí añadiremos la lógica para guardar en base de datos
+  faults.push(newFault);
+  res.json({ message: 'Fallo añadido correctamente', fault: newFault });
+});
+
+// Actualizar fallo
+app.put('/api/faults/:code', authenticateToken, (req, res) => {
+  const { code } = req.params;
+  const updatedFault = req.body;
+  // Aquí añadiremos la lógica para actualizar en base de datos
+  const index = faults.findIndex(f => f.code === code);
+  if (index > -1) {
+    faults[index] = updatedFault;
+    res.json({ message: 'Fallo actualizado correctamente', fault: updatedFault });
+  } else {
+    res.status(404).json({ error: 'Fallo no encontrado' });
+  }
+});
+
+// Eliminar fallo
+app.delete('/api/faults/:code', authenticateToken, (req, res) => {
+  const { code } = req.params;
+  // Aquí añadiremos la lógica para eliminar de la base de datos
+  const index = faults.findIndex(f => f.code === code);
+  if (index > -1) {
+    faults.splice(index, 1);
+    res.json({ message: 'Fallo eliminado correctamente' });
+  } else {
+    res.status(404).json({ error: 'Fallo no encontrado' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
