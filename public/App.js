@@ -67,16 +67,42 @@ function SearchPage() {
 function LoginPage() {
   const [username, setUsername] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [error, setError] = React.useState('');
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    // Por ahora solo mostraremos un mensaje
-    alert('Función de login pendiente de implementar');
+    setError('');
+    
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('token', data.token);
+        window.location.hash = '/admin';
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Error al iniciar sesión');
+      }
+    } catch (error) {
+      setError('Error de conexión');
+    }
   };
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-6 text-center">Acceso Administrador</h2>
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+        </div>
+      )}
       <form onSubmit={handleLogin} className="space-y-4">
         <div>
           <label className="block text-gray-700 mb-2">Usuario</label>
