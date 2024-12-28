@@ -13,11 +13,33 @@ const port = process.env.PORT || 3000;
 // Clave secreta para JWT (en producción debería estar en variables de entorno)
 const JWT_SECRET = 'serac-secret-key';
 
-// Usuario de admin (en producción debería estar en base de datos)
-const ADMIN_USER = {
-  username: 'admin',
-  password: 'serac123'  // En producción debería estar hasheada
-};
+// Lista de usuarios admin (en producción debería estar en base de datos)
+const ADMIN_USERS = [
+  {
+    username: 'admin',
+    password: 'serac123'
+  },
+  {
+    username: 'Admin',
+    password: 'Serac123'
+  }
+];
+
+// Ruta de login actualizada
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  const user = ADMIN_USERS.find(
+    u => u.username === username && u.password === password
+  );
+  
+  if (user) {
+    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '1h' });
+    res.json({ token });
+  } else {
+    res.status(401).json({ error: 'Credenciales inválidas' });
+  }
+});
 
 // Middleware para verificar JWT
 const authenticateToken = (req, res, next) => {
