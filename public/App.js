@@ -383,6 +383,8 @@ function App() {
       <NavMenu />
       {page === '/' && <SearchPage />}
       {page === '/login' && <LoginPage />}
+      {page === '/admin' && <AdminPanel />}
     </div>
   );
+
 }
