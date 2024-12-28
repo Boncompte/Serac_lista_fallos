@@ -135,6 +135,237 @@ function LoginPage() {
   );
 }
 
+function AdminPanel() {
+  const [faults, setFaults] = React.useState([]);
+  const [isAdding, setIsAdding] = React.useState(false);
+  const [editingFault, setEditingFault] = React.useState(null);
+  const [formData, setFormData] = React.useState({
+    code: '',
+    message: '',
+    cause: '',
+    consequence: '',
+    action: ''
+  });
+
+  // Verificar el token al cargar
+  React.useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.hash = '/login';
+      return;
+    }
+  }, []);
+
+  // Cargar datos
+  React.useEffect(() => {
+    fetchFaults();
+  }, []);
+
+  const fetchFaults = async () => {
+    try {
+      const response = await fetch('/api/faults');
+      const data = await response.json();
+      setFaults(data);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch('/api/faults', {
+        method: editingFault ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        fetchFaults();
+        setIsAdding(false);
+        setEditingFault(null);
+        setFormData({
+          code: '',
+          message: '',
+          cause: '',
+          consequence: '',
+          action: ''
+        });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const handleEdit = (fault) => {
+    setEditingFault(fault);
+    setFormData(fault);
+    setIsAdding(true);
+  };
+
+  const handleDelete = async (code) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este fallo?')) return;
+
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`/api/faults/${code}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        fetchFaults();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Panel de Administración</h1>
+        <button
+          onClick={() => setIsAdding(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Añadir Nuevo Fallo
+        </button>
+      </div>
+
+      {isAdding && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full m-4">
+            <h2 className="text-xl font-bold mb-4">
+              {editingFault ? 'Editar Fallo' : 'Añadir Nuevo Fallo'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-gray-700 mb-2">Código</label>
+                <input
+                  type="text"
+                  value={formData.code}
+                  onChange={(e) => setFormData({...formData, code: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                  pattern="def\d{4}"
+                  title="El código debe tener el formato: def0000"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-2">Mensaje</label>
+                <input
+                  type="text"
+                  value={formData.message}
+                  onChange={(e) => setFormData({...formData, message: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-2">Causa</label>
+                <textarea
+                  value={formData.cause}
+                  onChange={(e) => setFormData({...formData, cause: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                  rows="3"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-2">Consecuencia</label>
+                <textarea
+                  value={formData.consequence}
+                  onChange={(e) => setFormData({...formData, consequence: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                  rows="3"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-2">Acción Correctiva</label>
+                <textarea
+                  value={formData.action}
+                  onChange={(e) => setFormData({...formData, action: e.target.value})}
+                  className="w-full p-2 border rounded"
+                  required
+                  rows="3"
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAdding(false);
+                    setEditingFault(null);
+                    setFormData({
+                      code: '',
+                      message: '',
+                      cause: '',
+                      consequence: '',
+                      action: ''
+                    });
+                  }}
+                  className="px-4 py-2 border rounded hover:bg-gray-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  {editingFault ? 'Guardar Cambios' : 'Añadir Fallo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow">
+        <table className="min-w-full">
+          <thead>
+            <tr className="bg-gray-50">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mensaje</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {faults.map(fault => (
+              <tr key={fault.code}>
+                <td className="px-6 py-4 whitespace-nowrap text-blue-600 font-medium">{fault.code}</td>
+                <td className="px-6 py-4">{fault.message}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                  <button
+                    onClick={() => handleEdit(fault)}
+                    className="text-indigo-600 hover:text-indigo-900"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDelete(fault.code)}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    Eliminar
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [page, setPage] = React.useState(window.location.hash.slice(1) || '/');
 
