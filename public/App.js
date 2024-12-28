@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+function App() {
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [faults, setFaults] = React.useState([]);
 
-const App = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [faults, setFaults] = useState([]);
-
-  useEffect(() => {
+  React.useEffect(() => {
     fetch('/api/faults')
       .then(res => res.json())
       .then(data => setFaults(data))
@@ -12,8 +10,7 @@ const App = () => {
   }, []);
 
   const filteredFaults = faults.filter(fault => 
-    fault.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    fault.message.toLowerCase().includes(searchQuery.toLowerCase())
+    fault.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -23,60 +20,32 @@ const App = () => {
         <p className="text-gray-600">Consulta rápida de códigos de error y soluciones</p>
       </div>
 
-      <div className="mb-6 relative">
-        <input
-          type="search"
-          placeholder="Buscar por código (ej: def001) o mensaje"
-          className="w-full p-4 pl-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <svg
-          className="w-6 h-6 text-gray-400 absolute left-3 top-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-      </div>
+      <input
+        type="search"
+        placeholder="Buscar por código (ej: def001)"
+        className="w-full p-4 mb-4 border rounded"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
 
       <div className="space-y-4">
         {filteredFaults.map(fault => (
-          <div
-            key={fault.code}
-            className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200"
-          >
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-blue-600">{fault.code}</span>
-                <span className="text-gray-600">{fault.message}</span>
-              </div>
+          <div key={fault.code} className="border rounded p-4">
+            <div className="flex justify-between mb-2">
+              <span className="font-bold text-blue-600">{fault.code}</span>
+              <span>{fault.message}</span>
             </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <h3 className="font-semibold text-gray-700 mb-1">Causa:</h3>
-                <p className="text-gray-600">{fault.cause}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-700 mb-1">Consecuencia:</h3>
-                <p className="text-gray-600">{fault.consequence}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-700 mb-1">Acción Correctiva:</h3>
-                <p className="text-gray-600">{fault.action}</p>
-              </div>
+            <div>
+              <h3 className="font-bold">Causa:</h3>
+              <p>{fault.cause}</p>
+              <h3 className="font-bold mt-2">Consecuencia:</h3>
+              <p>{fault.consequence}</p>
+              <h3 className="font-bold mt-2">Acción Correctiva:</h3>
+              <p>{fault.action}</p>
             </div>
           </div>
         ))}
       </div>
     </div>
   );
-};
-
-export default App;
+}
