@@ -139,6 +139,12 @@ function AdminPanel() {
   const [faults, setFaults] = React.useState([]);
   const [isAdding, setIsAdding] = React.useState(false);
   const [editingFault, setEditingFault] = React.useState(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [itemsPerPage] = React.useState(10);
+  const [sortBy, setSortBy] = React.useState('code');
+  const [sortOrder, setSortOrder] = React.useState('asc');
+
   const [formData, setFormData] = React.useState({
     code: '',
     message: '',
@@ -147,17 +153,12 @@ function AdminPanel() {
     action: ''
   });
 
-  // Verificar el token al cargar
   React.useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
       window.location.hash = '/login';
       return;
     }
-  }, []);
-
-  // Cargar datos
-  React.useEffect(() => {
     fetchFaults();
   }, []);
 
@@ -171,65 +172,42 @@ function AdminPanel() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem('token');
-    
-    try {
-      const response = await fetch('/api/faults', {
-        method: editingFault ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        fetchFaults();
-        setIsAdding(false);
-        setEditingFault(null);
-        setFormData({
-          code: '',
-          message: '',
-          cause: '',
-          consequence: '',
-          action: ''
-        });
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  };
-
-  const handleEdit = (fault) => {
-    setEditingFault(fault);
-    setFormData(fault);
-    setIsAdding(true);
-  };
-
-  const handleDelete = async (code) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este fallo?')) return;
-
-    const token = localStorage.getItem('token');
-    try {
-      const response = await fetch(`/api/faults/${code}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
+  // Filtrar y ordenar fallos
+  const filteredFaults = React.useMemo(() => {
+    return faults
+      .filter(fault => 
+        fault.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        fault.message.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .sort((a, b) => {
+        if (sortOrder === 'asc') {
+          return a[sortBy] > b[sortBy] ? 1 : -1;
+        } else {
+          return a[sortBy] < b[sortBy] ? 1 : -1;
         }
       });
+  }, [faults, searchQuery, sortBy, sortOrder]);
 
-      if (response.ok) {
-        fetchFaults();
-      }
-    } catch (error) {
-      console.error('Error:', error);
+  // Calcular paginación
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredFaults.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredFaults.length / itemsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
     }
   };
 
   return (
     <div className="max-w-6xl mx-auto p-4">
+      {/* Cabecera */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Panel de Administración</h1>
         <button
@@ -240,6 +218,117 @@ function AdminPanel() {
         </button>
       </div>
 
+      {/* Barra de búsqueda y filtros */}
+      <div className="mb-6">
+        <input
+          type="search"
+          placeholder="Buscar por código o mensaje..."
+          className="w-full p-2 border rounded mb-4"
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+        <div className="flex gap-4">
+          <span>Total fallos: {filteredFaults.length}</span>
+          <span>Página: {currentPage} de {totalPages}</span>
+        </div>
+      </div>
+
+      {/* Tabla de fallos */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full">
+          <thead>
+            <tr className="bg-gray-50">
+              <th 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('code')}
+              >
+                Código {sortBy === 'code' && (sortOrder === 'asc' ? '↑' : '↓')}
+              </th>
+              <th 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('message')}
+              >
+                Mensaje {sortBy === 'message' && (sortOrder === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Acciones
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {currentItems.map(fault => (
+              <tr key={fault.code} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-blue-600 font-medium">
+                  {fault.code}
+                </td>
+                <td className="px-6 py-4">{fault.message}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                  <button
+                    onClick={() => handleEdit(fault)}
+                    className="text-indigo-600 hover:text-indigo-900"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDelete(fault.code)}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    Eliminar
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Paginación */}
+      <div className="mt-4 flex justify-center space-x-2">
+        <button
+          onClick={() => paginate(1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 rounded border disabled:opacity-50"
+        >
+          «
+        </button>
+        <button
+          onClick={() => paginate(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 rounded border disabled:opacity-50"
+        >
+          ‹
+        </button>
+        {[...Array(totalPages)].map((_, i) => (
+          <button
+            key={i + 1}
+            onClick={() => paginate(i + 1)}
+            className={`px-3 py-1 rounded border ${
+              currentPage === i + 1 ? 'bg-blue-600 text-white' : ''
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
+        <button
+          onClick={() => paginate(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 rounded border disabled:opacity-50"
+        >
+          ›
+        </button>
+        <button
+          onClick={() => paginate(totalPages)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 rounded border disabled:opacity-50"
+        >
+          »
+        </button>
+      </div>
+
+      {/* Modal de formulario (mantenemos el existente) */}
       {isAdding && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full m-4">
@@ -328,40 +417,6 @@ function AdminPanel() {
           </div>
         </div>
       )}
-
-      <div className="bg-white rounded-lg shadow">
-        <table className="min-w-full">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mensaje</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {faults.map(fault => (
-              <tr key={fault.code}>
-                <td className="px-6 py-4 whitespace-nowrap text-blue-600 font-medium">{fault.code}</td>
-                <td className="px-6 py-4">{fault.message}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                  <button
-                    onClick={() => handleEdit(fault)}
-                    className="text-indigo-600 hover:text-indigo-900"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDelete(fault.code)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
