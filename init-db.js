@@ -1,5 +1,8 @@
 import pkg from 'pg';
 const { Pool } = pkg;
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -11,18 +14,26 @@ const pool = new Pool({
 const createTables = async () => {
   const client = await pool.connect();
   try {
+    // Iniciar transacción
+    await client.query('BEGIN');
+
+    console.log('Creando tablas...');
+
+    // Crear tabla usuarios
     await client.query(`
-      -- Crear tabla usuarios
-      CREATE TABLE usuarios (
+      CREATE TABLE IF NOT EXISTS usuarios (
           id SERIAL PRIMARY KEY,
           nombre_usuario VARCHAR(50) UNIQUE NOT NULL,
           contraseña VARCHAR(255) NOT NULL,
           rol VARCHAR(20) NOT NULL CHECK (rol IN ('admin', 'usuario')),
           fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+    console.log('Tabla usuarios creada');
 
-      -- Crear tabla maquinas
-      CREATE TABLE maquinas (
+    // Crear tabla maquinas
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS maquinas (
           id SERIAL PRIMARY KEY,
           codigo VARCHAR(10) UNIQUE NOT NULL CHECK (codigo ~ '^[A-Z0-9]+$'),
           nombre VARCHAR(100) NOT NULL,
@@ -31,9 +42,12 @@ const createTables = async () => {
           ubicacion VARCHAR(100),
           fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+    console.log('Tabla maquinas creada');
 
-      -- Crear tabla fallos
-      CREATE TABLE fallos (
+    // Crear tabla fallos
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS fallos (
           id SERIAL PRIMARY KEY,
           maquina_id INTEGER REFERENCES maquinas(id),
           codigo VARCHAR(20) UNIQUE NOT NULL,
@@ -44,27 +58,44 @@ const createTables = async () => {
           fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+    console.log('Tabla fallos creada');
 
-      -- Crear tabla comentarios
-      CREATE TABLE comentarios (
+    // Crear tabla comentarios
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS comentarios (
           id SERIAL PRIMARY KEY,
           fallo_id INTEGER REFERENCES fallos(id),
           usuario_id INTEGER REFERENCES usuarios(id),
           contenido TEXT NOT NULL,
           fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-
-      -- Insertar usuario admin por defecto
-      INSERT INTO usuarios (nombre_usuario, contraseña, rol)
-      VALUES ('admin', 'serac123', 'admin');
     `);
-    console.log('Tablas creadas exitosamente');
+    console.log('Tabla comentarios creada');
+
+    // Insertar usuario admin por defecto
+    await client.query(`
+      INSERT INTO usuarios (nombre_usuario, contraseña, rol)
+      VALUES ('admin', 'serac123', 'admin')
+      ON CONFLICT (nombre_usuario) DO NOTHING;
+    `);
+    console.log('Usuario admin creado');
+
+    // Confirmar transacción
+    await client.query('COMMIT');
+    console.log('Base de datos inicializada correctamente');
+
   } catch (error) {
-    console.error('Error al crear las tablas:', error);
+    // Revertir cambios si hay error
+    await client.query('ROLLBACK');
+    console.error('Error al inicializar la base de datos:', error);
+    throw error;
   } finally {
+    // Liberar el cliente
     client.release();
     await pool.end();
   }
 };
 
-createTables();
+// Ejecutar la inicialización
+createTables().catch(console.error);
