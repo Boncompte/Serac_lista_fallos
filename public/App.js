@@ -1,8 +1,15 @@
+import { createClient } from '@supabase/supabase-js';
+
+// Inicializar el cliente de Supabase en el frontend
+const supabaseUrl = 'https://xuyjfqgknmqtdniqzrnk.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1eWpmcWdrbm1xdGRuaXF6cm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MTU2MDYsImV4cCI6MjA1MTE5MTYwNn0.Zyg01poPDTrTg_FcezUklbgLyG2uNzZvewfcURWpNoo'; // Esta es pública, no hay problema en tenerla aquí
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 function NavMenu() {
   return (
     <nav className="bg-gray-800 text-white p-4 mb-4">
       <div className="max-w-4xl mx-auto flex justify-between items-center">
-        <div className="font-bold">SERAC Fallos</div>
+        <div className="font-bold">TechMant-IA</div>
         <div className="space-x-4">
           <a href="#/" className="hover:text-gray-300">Consulta</a>
           <a href="#/login" className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">Admin</a>
@@ -17,26 +24,37 @@ function SearchPage() {
   const [faults, setFaults] = React.useState([]);
 
   React.useEffect(() => {
-    fetch('/api/faults')
-      .then(res => res.json())
-      .then(data => setFaults(data))
-      .catch(error => console.error('Error:', error));
+    const fetchFaults = async () => {
+      const { data, error } = await supabase
+        .from('fallos')
+        .select('*');
+      
+      if (error) {
+        console.error('Error:', error);
+        return;
+      }
+      
+      setFaults(data);
+    };
+
+    fetchFaults();
   }, []);
 
   const filteredFaults = faults.filter(fault => 
-    fault.code.toLowerCase().includes(searchQuery.toLowerCase())
+    fault.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    fault.mensaje.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="max-w-4xl mx-auto p-4">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold mb-2">Sistema de Consulta de Fallos SERAC</h1>
+        <h1 className="text-2xl font-bold mb-2">Sistema de Consulta de Fallos</h1>
         <p className="text-gray-600">Consulta rápida de códigos de error y soluciones</p>
       </div>
 
       <input
         type="search"
-        placeholder="Buscar por código (ej: def001)"
+        placeholder="Buscar por código (ej: def001) o mensaje"
         className="w-full p-4 mb-4 border rounded"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
@@ -44,18 +62,24 @@ function SearchPage() {
 
       <div className="space-y-4">
         {filteredFaults.map(fault => (
-          <div key={fault.code} className="border rounded p-4">
+          <div key={fault.codigo} className="border rounded p-4">
             <div className="flex justify-between mb-2">
-              <span className="font-bold text-blue-600">{fault.code}</span>
-              <span>{fault.message}</span>
+              <span className="font-bold text-blue-600">{fault.codigo}</span>
+              <span className="text-gray-600">{fault.mensaje}</span>
             </div>
-            <div>
-              <h3 className="font-bold">Causa:</h3>
-              <p>{fault.cause}</p>
-              <h3 className="font-bold mt-2">Consecuencia:</h3>
-              <p>{fault.consequence}</p>
-              <h3 className="font-bold mt-2">Acción Correctiva:</h3>
-              <p>{fault.action}</p>
+            <div className="space-y-2">
+              <div>
+                <h3 className="font-bold">Causa:</h3>
+                <p>{fault.causa}</p>
+              </div>
+              <div>
+                <h3 className="font-bold">Consecuencia:</h3>
+                <p>{fault.consecuencia}</p>
+              </div>
+              <div>
+                <h3 className="font-bold">Acción Correctiva:</h3>
+                <p>{fault.accion}</p>
+              </div>
             </div>
           </div>
         ))}
@@ -65,7 +89,7 @@ function SearchPage() {
 }
 
 function LoginPage() {
-  const [username, setUsername] = React.useState('');
+  const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
 
@@ -74,24 +98,28 @@ function LoginPage() {
     setError('');
     
     try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('token', data.token);
-        window.location.hash = '/admin';
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Error al iniciar sesión');
-      }
+
+      if (error) throw error;
+
+      // Obtener el rol del usuario
+      const { data: userData, error: userError } = await supabase
+        .from('usuarios')
+        .select('rol')
+        .eq('id', data.user.id)
+        .single();
+
+      if (userError) throw userError;
+
+      localStorage.setItem('session', JSON.stringify(data.session));
+      localStorage.setItem('userRole', userData.rol);
+      window.location.hash = '/admin';
     } catch (error) {
-      setError('Error de conexión');
+      console.error('Error:', error);
+      setError('Error en el inicio de sesión');
     }
   };
 
@@ -105,11 +133,11 @@ function LoginPage() {
       )}
       <form onSubmit={handleLogin} className="space-y-4">
         <div>
-          <label className="block text-gray-700 mb-2">Usuario</label>
+          <label className="block text-gray-700 mb-2">Email</label>
           <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="w-full p-2 border rounded"
             required
           />
@@ -138,9 +166,6 @@ function LoginPage() {
 function AdminPanel() {
   const [faults, setFaults] = React.useState([]);
   const [isAdding, setIsAdding] = React.useState(false);
-  const [editingFault, setEditingFault] = React.useState(null);
-  const [searchQuery, setSearchQuery] = React.useState('');
-  
   const [formData, setFormData] = React.useState({
     code: '',
     message: '',
@@ -149,86 +174,59 @@ function AdminPanel() {
     action: ''
   });
 
-  // Cargar datos al inicio
   React.useEffect(() => {
+    const session = localStorage.getItem('session');
+    if (!session) {
+      window.location.hash = '/login';
+      return;
+    }
+
     fetchFaults();
   }, []);
 
   const fetchFaults = async () => {
-    try {
-      const response = await fetch('/api/faults');
-      const data = await response.json();
-      setFaults(data);
-    } catch (error) {
+    const { data, error } = await supabase
+      .from('fallos')
+      .select('*')
+      .order('codigo');
+
+    if (error) {
       console.error('Error:', error);
+      return;
     }
+
+    setFaults(data);
   };
 
-  // Manejar el envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-    
     try {
-      const response = await fetch('/api/faults', {
-        method: editingFault ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
+      const { data, error } = await supabase
+        .from('fallos')
+        .insert([{
+          codigo: formData.code,
+          mensaje: formData.message,
+          causa: formData.cause,
+          consecuencia: formData.consequence,
+          accion: formData.action
+        }])
+        .select();
 
-      if (response.ok) {
-        fetchFaults();
-        setIsAdding(false);
-        setEditingFault(null);
-        setFormData({
-          code: '',
-          message: '',
-          cause: '',
-          consequence: '',
-          action: ''
-        });
-      }
+      if (error) throw error;
+
+      setIsAdding(false);
+      setFormData({
+        code: '',
+        message: '',
+        cause: '',
+        consequence: '',
+        action: ''
+      });
+      fetchFaults();
     } catch (error) {
       console.error('Error:', error);
     }
   };
-
-  // Manejar edición
-  const handleEdit = (fault) => {
-    setEditingFault(fault);
-    setFormData(fault);
-    setIsAdding(true);
-  };
-
-  // Manejar borrado
-  const handleDelete = async (code) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este fallo?')) return;
-
-    const token = localStorage.getItem('token');
-    try {
-      const response = await fetch(`/api/faults/${code}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        fetchFaults();
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  };
-
-  // Filtrar fallos
-  const filteredFaults = faults.filter(fault => 
-    fault.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    fault.message.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -242,38 +240,12 @@ function AdminPanel() {
         </button>
       </div>
 
-      <div className="mb-4">
-        <input
-          type="search"
-          placeholder="Buscar fallo..."
-          className="w-full p-2 border rounded"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
-
       <div className="space-y-4">
-        {filteredFaults.map(fault => (
-          <div key={fault.code} className="border rounded p-4">
+        {faults.map(fault => (
+          <div key={fault.codigo} className="border rounded p-4">
             <div className="flex justify-between items-center">
-              <div>
-                <span className="font-bold text-blue-600">{fault.code}</span>
-                <span className="ml-4">{fault.message}</span>
-              </div>
-              <div className="space-x-2">
-                <button
-                  onClick={() => handleEdit(fault)}
-                  className="text-blue-600 hover:underline"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => handleDelete(fault.code)}
-                  className="text-red-600 hover:underline"
-                >
-                  Eliminar
-                </button>
-              </div>
+              <span className="font-bold text-blue-600">{fault.codigo}</span>
+              <span className="text-gray-600">{fault.mensaje}</span>
             </div>
           </div>
         ))}
@@ -282,9 +254,7 @@ function AdminPanel() {
       {isAdding && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full m-4">
-            <h2 className="text-xl font-bold mb-4">
-              {editingFault ? 'Editar Fallo' : 'Añadir Nuevo Fallo'}
-            </h2>
+            <h2 className="text-xl font-bold mb-4">Añadir Nuevo Fallo</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-gray-700 mb-2">Código</label>
@@ -294,8 +264,8 @@ function AdminPanel() {
                   onChange={(e) => setFormData({...formData, code: e.target.value})}
                   className="w-full p-2 border rounded"
                   required
-                  pattern="def\d{4}"
-                  title="El código debe tener el formato: def0000"
+                  pattern="^[A-Z0-9]+$"
+                  title="Solo mayúsculas y números"
                 />
               </div>
               <div>
@@ -343,7 +313,6 @@ function AdminPanel() {
                   type="button"
                   onClick={() => {
                     setIsAdding(false);
-                    setEditingFault(null);
                     setFormData({
                       code: '',
                       message: '',
@@ -360,7 +329,7 @@ function AdminPanel() {
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                 >
-                  {editingFault ? 'Guardar Cambios' : 'Añadir Fallo'}
+                  Añadir Fallo
                 </button>
               </div>
             </form>
@@ -391,5 +360,4 @@ function App() {
       {page === '/admin' && <AdminPanel />}
     </div>
   );
-
 }
