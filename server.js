@@ -1,8 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import jwt from 'jsonwebtoken';
-import pool from './database.js';
+import supabase from './supabase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,8 +16,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 // API endpoints
 app.get('/api/faults', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM fallos');
-    res.json(result.rows);
+    const { data, error } = await supabase
+      .from('fallos')
+      .select('*');
+
+    if (error) throw error;
+    res.json(data);
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Error al obtener los fallos' });
@@ -27,52 +30,73 @@ app.get('/api/faults', async (req, res) => {
 
 // Ruta de login
 app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body;
   try {
-    const result = await pool.query(
-      'SELECT * FROM usuarios WHERE nombre_usuario = $1 AND contraseña = $2',
-      [username, password]
-    );
-    
-    if (result.rows.length > 0) {
-      const token = jwt.sign(
-        { username, role: result.rows[0].rol },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
-      res.json({ token });
-    } else {
-      res.status(401).json({ error: 'Credenciales inválidas' });
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+
+    // Obtener el rol del usuario
+    const { data: userData, error: userError } = await supabase
+      .from('usuarios')
+      .select('rol')
+      .eq('id', data.user.id)
+      .single();
+
+    if (userError) throw userError;
+
+    res.json({
+      token: data.session.access_token,
+      role: userData.rol
+    });
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
+    res.status(401).json({ error: 'Credenciales inválidas' });
   }
 });
 
-// Verificar token
-const authenticateToken = (req, res, next) => {
+// Middleware para verificar token
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) return res.status(401).json({ error: 'Token requerido' });
+  if (!token) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Token inválido' });
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error) throw error;
     req.user = user;
     next();
-  });
+  } catch (error) {
+    console.error('Error:', error);
+    return res.status(403).json({ error: 'Token inválido' });
+  }
 };
 
 // Rutas protegidas
 app.post('/api/faults', authenticateToken, async (req, res) => {
   try {
     const { code, message, cause, consequence, action } = req.body;
-    const result = await pool.query(
-      'INSERT INTO fallos (codigo, mensaje, causa, consecuencia, accion) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [code, message, cause, consequence, action]
-    );
-    res.json(result.rows[0]);
+    const { data, error } = await supabase
+      .from('fallos')
+      .insert([
+        {
+          codigo: code,
+          mensaje: message,
+          causa: cause,
+          consecuencia: consequence,
+          accion: action
+        }
+      ])
+      .select();
+
+    if (error) throw error;
+    res.json(data[0]);
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Error al crear el fallo' });
