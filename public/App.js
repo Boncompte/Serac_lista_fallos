@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Inicializar el cliente de Supabase en el frontend
-const supabaseUrl = 'https://xuyjfqgknmqtdniqzrnk.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1eWpmcWdrbm1xdGRuaXF6cm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MTU2MDYsImV4cCI6MjA1MTE5MTYwNn0.Zyg01poPDTrTg_FcezUklbgLyG2uNzZvewfcURWpNoo'; // Esta es pública, no hay problema en tenerla aquí
+const supabaseUrl = 'https://mkajuzdzzljrykquvkje.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rYWp1emR6emxqcnlrcXV2a2plIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU1OTg5ODksImV4cCI6MjA1MTE3NDk4OX0.D_AYE0rawTVdpJzf5JHpBVZ4ZVw13rpXiWijFs3dZ3M'; // Esta es pública, no hay problema en tenerla aquí
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 function NavMenu() {
