@@ -95,8 +95,6 @@ function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
-    
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -105,23 +103,52 @@ function LoginPage() {
 
       if (error) throw error;
 
-      // Obtener el rol del usuario
-      const { data: userData, error: userError } = await supabase
-        .from('usuarios')
-        .select('rol')
-        .eq('id', data.user.id)
-        .single();
-
-      if (userError) throw userError;
-
       localStorage.setItem('session', JSON.stringify(data.session));
-      localStorage.setItem('userRole', userData.rol);
       window.location.hash = '/admin';
     } catch (error) {
-      console.error('Error:', error);
-      setError('Error en el inicio de sesión');
+      setError('Error en el inicio de sesión: ' + error.message);
     }
   };
+
+  return (
+    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold mb-6 text-center">Acceso Administrador</h2>
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+        </div>
+      )}
+      <form onSubmit={handleLogin} className="space-y-4">
+        <div>
+          <label className="block text-gray-700 mb-2">Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-gray-700 mb-2">Contraseña</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+        <button 
+          type="submit" 
+          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
+        >
+          Iniciar Sesión
+        </button>
+      </form>
+    </div>
+  );
+}
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
