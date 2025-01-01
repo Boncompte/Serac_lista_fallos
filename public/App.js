@@ -1,9 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
 
-// Inicializar el cliente de Supabase en el frontend
-const supabaseUrl = 'https://xuyjfqgknmqtdniqzrnk.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1eWpmcWdrbm1xdGRuaXF6cm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MTU2MDYsImV4cCI6MjA1MTE5MTYwNn0.Zyg01poPDTrTg_FcezUklbgLyG2uNzZvewfcURWpNoo'; // Esta es pública, no hay problema en tenerla aquí
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseUrl = 'https://xuyjfqgknmqtdniqzrnk.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1eWpmcWdrbm1xdGRuaXF6cm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MTU2MDYsImV4cCI6MjA1MTE5MTYwNn0.Zyg01poPDTrTg_FcezUklbgLyG2uNzZvewfcURWpNoo'
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 function NavMenu() {
   return (
@@ -34,15 +33,15 @@ function SearchPage() {
         return;
       }
       
-      setFaults(data);
+      setFaults(data || []);
     };
 
     fetchFaults();
   }, []);
 
   const filteredFaults = faults.filter(fault => 
-    fault.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    fault.mensaje.toLowerCase().includes(searchQuery.toLowerCase())
+    fault.codigo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    fault.mensaje?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -150,46 +149,6 @@ function LoginPage() {
   );
 }
 
-  return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6 text-center">Acceso Administrador</h2>
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
-        </div>
-      )}
-      <form onSubmit={handleLogin} className="space-y-4">
-        <div>
-          <label className="block text-gray-700 mb-2">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-gray-700 mb-2">Contraseña</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
-        </div>
-        <button 
-          type="submit" 
-          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
-        >
-          Iniciar Sesión
-        </button>
-      </form>
-    </div>
-  );
-}
-
 function AdminPanel() {
   const [faults, setFaults] = React.useState([]);
   const [isAdding, setIsAdding] = React.useState(false);
@@ -202,12 +161,15 @@ function AdminPanel() {
   });
 
   React.useEffect(() => {
-    const session = localStorage.getItem('session');
-    if (!session) {
-      window.location.hash = '/login';
-      return;
-    }
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.hash = '/login';
+        return;
+      }
+    };
 
+    checkSession();
     fetchFaults();
   }, []);
 
@@ -222,7 +184,7 @@ function AdminPanel() {
       return;
     }
 
-    setFaults(data);
+    setFaults(data || []);
   };
 
   const handleSubmit = async (e) => {
