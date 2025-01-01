@@ -1,17 +1,41 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = 'https://xuyjfqgknmqtdniqzrnk.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1eWpmcWdrbm1xdGRuaXF6cm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MTU2MDYsImV4cCI6MjA1MTE5MTYwNn0.Zyg01poPDTrTg_FcezUklbgLyG2uNzZvewfcURWpNoo'
-const supabase = createClient(supabaseUrl, supabaseKey)
+const { createClient } = supabase;
+const supabaseClient = createClient(
+  'https://xuyjfqgknmqtdniqzrnk.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1eWpmcWdrbm1xdGRuaXF6cm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2MTU2MDYsImV4cCI6MjA1MTE5MTYwNn0.Zyg01poPDTrTg_FcezUklbgLyG2uNzZvewfcURWpNoo'
+);
 
 function NavMenu() {
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabaseClient.auth.getSession();
+      setIsLoggedIn(!!data.session);
+    };
+    checkSession();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabaseClient.auth.signOut();
+    window.location.hash = '/';
+  };
+
   return (
     <nav className="bg-gray-800 text-white p-4 mb-4">
       <div className="max-w-4xl mx-auto flex justify-between items-center">
         <div className="font-bold">TechMant-IA</div>
         <div className="space-x-4">
           <a href="#/" className="hover:text-gray-300">Consulta</a>
-          <a href="#/login" className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">Admin</a>
+          {isLoggedIn ? (
+            <>
+              <a href="#/admin" className="hover:text-gray-300">Admin</a>
+              <button onClick={handleLogout} className="bg-red-600 px-4 py-2 rounded hover:bg-red-700">
+                Salir
+              </button>
+            </>
+          ) : (
+            <a href="#/login" className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">Admin</a>
+          )}
         </div>
       </div>
     </nav>
@@ -24,7 +48,7 @@ function SearchPage() {
 
   React.useEffect(() => {
     const fetchFaults = async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('fallos')
         .select('*');
       
@@ -95,17 +119,16 @@ function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
         email,
         password
       });
 
       if (error) throw error;
 
-      localStorage.setItem('session', JSON.stringify(data.session));
       window.location.hash = '/admin';
     } catch (error) {
-      setError('Error en el inicio de sesión: ' + error.message);
+      setError('Error: ' + error.message);
     }
   };
 
@@ -162,8 +185,8 @@ function AdminPanel() {
 
   React.useEffect(() => {
     const checkSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (!session) {
+      const { data } = await supabaseClient.auth.getSession();
+      if (!data.session) {
         window.location.hash = '/login';
         return;
       }
@@ -174,7 +197,7 @@ function AdminPanel() {
   }, []);
 
   const fetchFaults = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('fallos')
       .select('*')
       .order('codigo');
@@ -190,7 +213,7 @@ function AdminPanel() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const { data, error } = await supabase
+      const { error } = await supabaseClient
         .from('fallos')
         .insert([{
           codigo: formData.code,
@@ -198,8 +221,7 @@ function AdminPanel() {
           causa: formData.cause,
           consecuencia: formData.consequence,
           accion: formData.action
-        }])
-        .select();
+        }]);
 
       if (error) throw error;
 
@@ -211,6 +233,22 @@ function AdminPanel() {
         consequence: '',
         action: ''
       });
+      fetchFaults();
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const handleDelete = async (codigo) => {
+    if (!window.confirm('¿Seguro que quieres eliminar este fallo?')) return;
+
+    try {
+      const { error } = await supabaseClient
+        .from('fallos')
+        .delete()
+        .eq('codigo', codigo);
+
+      if (error) throw error;
       fetchFaults();
     } catch (error) {
       console.error('Error:', error);
@@ -233,8 +271,18 @@ function AdminPanel() {
         {faults.map(fault => (
           <div key={fault.codigo} className="border rounded p-4">
             <div className="flex justify-between items-center">
-              <span className="font-bold text-blue-600">{fault.codigo}</span>
-              <span className="text-gray-600">{fault.mensaje}</span>
+              <div>
+                <span className="font-bold text-blue-600">{fault.codigo}</span>
+                <span className="ml-4 text-gray-600">{fault.mensaje}</span>
+              </div>
+              <div className="space-x-2">
+                <button
+                  onClick={() => handleDelete(fault.codigo)}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
           </div>
         ))}
